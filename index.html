@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shoot the Falling Leaves</title>
+<style>
+  body {
+    margin: 0;
+    background: linear-gradient(#87ceeb, #0b3d91);
+    font-family: Arial, sans-serif;
+    overflow: hidden;
+  }
+  #game {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
+  .leaf {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    background-size: cover;
+  }
+  #shooter {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    width: 60px;
+    height: 60px;
+    margin-left: -30px;
+    background: red;
+    border-radius: 8px;
+  }
+  .laser {
+    position: absolute;
+    width: 4px;
+    height: 20px;
+    background: yellow;
+  }
+  #scoreboard {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 20px;
+  }
+  #timer {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    color: white;
+    font-size: 20px;
+  }
+</style>
+</head>
+<body>
+<div id="game">
+  <div id="scoreboard">Score: 0 | High: 0</div>
+  <div id="timer">Time: 30</div>
+  <div id="shooter"></div>
+</div>
+
+<audio id="laserSound" src="https://freesound.org/data/previews/320/320181_5260874-lq.mp3"></audio>
+
+<script>
+const game = document.getElementById('game');
+const shooter = document.getElementById('shooter');
+const scoreboard = document.getElementById('scoreboard');
+const timerEl = document.getElementById('timer');
+const laserSound = document.getElementById('laserSound');
+
+let score = 0;
+let shooterX = window.innerWidth / 2 - 30;
+let leaves = [];
+let lasers = [];
+let gameTime = 30;
+let timerInterval;
+let leafInterval;
+let running = false;
+
+const HIGH_KEY = 'shoot_leaves_highscore';
+let highScore = parseInt(localStorage.getItem(HIGH_KEY) || '0', 10);
+
+shooter.style.left = shooterX + 'px';
+scoreboard.textContent = `Score: ${score} | High: ${highScore}`;
+
+// ====== Controls ======
+document.addEventListener('keydown', (e) => {
+  if (!running) return;
+  if (e.key === 'ArrowLeft') moveShooter(-20);
+  if (e.key === 'ArrowRight') moveShooter(20);
+  if (e.key === ' ') shootLaser();
+});
+
+function moveShooter(dx){
+  shooterX = Math.max(0, Math.min(window.innerWidth - 60, shooterX + dx));
+  shooter.style.left = shooterX + 'px';
+}
+
+function shootLaser(){
+  const laser = document.createElement('div');
+  laser.className = 'laser';
+  laser.style.left = (shooterX + 28) + 'px';
+  laser.style.bottom = '70px';
+  game.appendChild(laser);
+  lasers.push(laser);
+  laserSound.currentTime = 0;
+  laserSound.play();
+}
+
+// ====== Leaves ======
+function spawnLeaf(){
+  const leaf = document.createElement('div');
+  leaf.className = 'leaf';
+  leaf.style.left = Math.random() * (window.innerWidth - 40) + 'px';
+  leaf.style.top = '-40px';
+
+  // Leaf type
+  const type = Math.random();
+  if (type < 0.6) {
+    leaf.dataset.points = '1';
+    leaf.style.backgroundImage = 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/4/44/Maple_leaf_icon.svg/1024px-Maple_leaf_icon.svg.png)';
+  } else if (type < 0.9){
+    leaf.dataset.points = '2';
+    leaf.style.backgroundImage = 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Autumn_leaf_icon.svg/1024px-Autumn_leaf_icon.svg.png)';
+  } else {
+    leaf.dataset.points = '5';
+    leaf.style.backgroundImage = 'url(https://upload.wikimedia.org/wikipedia/commons/thumb/d/d3/Red_leaf_icon.svg/1024px-Red_leaf_icon.svg.png)';
+  }
+
+  game.appendChild(leaf);
+  leaves.push(leaf);
+}
+
+// ====== Game Loop ======
+function gameLoop(){
+  if (!running) return;
+
+  // Move leaves
+  leaves.forEach((leaf, i) => {
+    const top = parseFloat(leaf.style.top);
+    const speed = 2 + (30 - gameTime)/10; // faster as time passes
+    leaf.style.top = top + speed + 'px';
+    if (top > window.innerHeight){
+      leaf.remove();
+      leaves.splice(i,1);
+    }
+  });
+
+  // Move lasers
+  lasers.forEach((laser, i) => {
+    const bottom = parseFloat(laser.style.bottom);
+    laser.style.bottom = bottom + 12 + 'px';
+    if (bottom > window.innerHeight){
+      laser.remove();
+      lasers.splice(i,1);
+    }
+  });
+
+  // Check collisions
+  leaves.forEach((leaf, li) => {
+    const leafRect = leaf.getBoundingClientRect();
+    lasers.forEach((laser, li2) => {
+      const laserRect = laser.getBoundingClientRect();
+      if (!(laserRect.right < leafRect.left || 
+            laserRect.left > leafRect.right ||
+            laserRect.bottom < leafRect.top ||
+            laserRect.top > leafRect.bottom)){
+        score += parseInt(leaf.dataset.points);
+        scoreboard.textContent = `Score: ${score} | High: ${highScore}`;
+        leaf.remove();
+        laser.remove();
+        leaves.splice(li,1);
+        lasers.splice(li2,1);
+      }
+    });
+  });
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ====== Timer ======
+function startGame(){
+  if (running) return;
+  running = true;
+  score = 0;
+  gameTime = 30;
+  leaves.forEach(l => l.remove());
+  lasers.forEach(l => l.remove());
+  lea
